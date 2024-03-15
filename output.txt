@@ -1,20 +1,55 @@
 classifier.weight in model and cls.predictions.bias in pretrained_weights unpaired!
 classifier.bias in model and cls.predictions.transform.dense.weight in pretrained_weights unpaired!
 weight loaded!
-Parameter containing:
-tensor([[ 0.0573, -0.0164,  0.0500,  ...,  0.0499,  0.0380,  0.0136],
-        [ 0.0254,  0.0115,  0.0222,  ...,  0.0491, -0.0255,  0.0345],
-        [-0.0262,  0.0537,  0.0151,  ...,  0.0100, -0.0887, -0.0037],
-        ...,
-        [ 0.0100,  0.0010, -0.0044,  ...,  0.0413, -0.0270, -0.0023],
-        [ 0.0341,  0.0658, -0.0308,  ...,  0.0110,  0.0557,  0.0961],
-        [-0.0437,  0.0143,  0.0067,  ...,  0.0104, -0.0125, -0.0128]],
-       requires_grad=True)
-tensor([[ 0.0344,  0.0045,  0.0285,  ...,  0.0391,  0.0362, -0.0059],
-        [ 0.0045,  0.0344,  0.0192,  ..., -0.0023, -0.0059,  0.0362],
-        [-0.0104,  0.0266, -0.0330,  ...,  0.0126, -0.0557, -0.0557],
-        ...,
-        [ 0.0255,  0.0036, -0.0334,  ...,  0.0141, -0.0258,  0.0083],
-        [ 0.0242,  0.0110, -0.0015,  ...,  0.0070,  0.0214,  0.0418],
-        [ 0.0110,  0.0242,  0.0068,  ...,  0.0031,  0.0418,  0.0214]],
-       grad_fn=<UnsafeViewBackward0>)
+config is:
+BertConfig {
+  "architectures": [
+    "BertForMaskedLM"
+  ],
+  "attention_probs_dropout_prob": 0.1,
+  "batch_size": 640,
+  "block_size_attention_output": 2,
+  "block_size_intermediate": 2,
+  "block_size_output": 2,
+  "block_size_selfattention": 2,
+  "cir_attention_output": true,
+  "cir_intermediate": true,
+  "cir_output": true,
+  "cir_selfattention": true,
+  "classifier_dropout": null,
+  "gradient_checkpointing": false,
+  "hidden_act": "gelu",
+  "hidden_dropout_prob": 0.1,
+  "hidden_size": 768,
+  "id2label": {
+    "0": "LABEL_0",
+    "1": "LABEL_1",
+    "2": "LABEL_2",
+    "3": "LABEL_3"
+  },
+  "initializer_range": 0.02,
+  "intermediate_size": 3072,
+  "label2id": {
+    "LABEL_0": 0,
+    "LABEL_1": 1,
+    "LABEL_2": 2,
+    "LABEL_3": 3
+  },
+  "layer_norm_eps": 1e-12,
+  "lr": 2e-05,
+  "max_position_embeddings": 512,
+  "model_type": "bert",
+  "num_attention_heads": 12,
+  "num_epochs": 1,
+  "num_hidden_layers": 12,
+  "pad_token_id": 0,
+  "position_embedding_type": "absolute",
+  "seed": 42,
+  "transformers_version": "4.36.2",
+  "type_vocab_size": 2,
+  "use_cache": true,
+  "vocab_size": 30522
+}
+
+_______________________________
+Epoch 1/1, Train Loss: 0.6654, Val Loss: 0.0006, Val Acc: 87.76%

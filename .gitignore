@@ -1,1 +1,5 @@
 /model
+/data
+test.py
+*.pth
+/wandb

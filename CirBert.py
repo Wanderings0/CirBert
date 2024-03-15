@@ -6,13 +6,19 @@ from torch.nn import init
 from transformers import BertConfig
 from transformers.models.bert.modeling_bert import BertEmbeddings, BertPooler
 
+# TODO: 
+
+
+#       4. if the out_features%block_size!=0, we need to do extra work
+#       5. BertForSequencetoSequence need write decoder part from scratch
+#       6. optimize the trans_to_cir function use vectorization
 
 class CirMatrix(nn.Module):
-    def __init__(self,in_features,out_features,block_size=2,train=False,weight=None):
+    def __init__(self,in_features,out_features,block_size=2,cir=False,weight=None,device='cuda:0'):
         super(CirMatrix,self).__init__()
         self.in_features = in_features
         self.out_features = out_features
-        self.train = train
+        self.cir = cir
         self.block_size = block_size
         if weight is None:
             self.weight = nn.Parameter(torch.zeros(out_features,in_features))
@@ -51,10 +57,10 @@ class CirMatrix(nn.Module):
 
         return w
     def forward(self,x):
-        if self.train:
-            weight = self.trans_to_cir()
+        if self.cir:
+            weight = self.trans_to_cir().to(x.device)
         else:
-            weight = self.weight
+            weight = self.weight.to(x.device)
         return torch.matmul(x,weight.t())
     
 class CirSelfAttention(nn.Module):
@@ -63,9 +69,9 @@ class CirSelfAttention(nn.Module):
         self.num_attention_heads = config.num_attention_heads
         self.attention_head_size = int(config.hidden_size / config.num_attention_heads)
         self.all_head_size = self.num_attention_heads * self.attention_head_size
-        self.query = CirMatrix(config.hidden_size, self.all_head_size,block_size=config.block_size,train=config.train)
-        self.key = CirMatrix(config.hidden_size, self.all_head_size,block_size=config.block_size,train=config.train)
-        self.value = CirMatrix(config.hidden_size, self.all_head_size,block_size=config.block_size,train=config.train)
+        self.query = CirMatrix(config.hidden_size, self.all_head_size,block_size=config.block_size_selfattention,cir=config.cir_selfattention)
+        self.key = CirMatrix(config.hidden_size, self.all_head_size,block_size=config.block_size_selfattention,cir=config.cir_selfattention)
+        self.value = CirMatrix(config.hidden_size, self.all_head_size,block_size=config.block_size_selfattention,cir=config.cir_selfattention)
         self.dropout = nn.Dropout(config.attention_probs_dropout_prob)
 
     def transpose_for_scores(self, x):
@@ -109,7 +115,7 @@ class CirBertAttention(nn.Module):
     def __init__(self, config):
         super(CirBertAttention, self).__init__()
         self.self = CirSelfAttention(config)
-        self.output = CirMatrix(config.hidden_size, config.hidden_size,block_size=config.block_size,train=config.train)
+        self.output = CirMatrix(config.hidden_size, config.hidden_size,block_size=config.block_size_attention_output,cir=config.cir_attention_output)
         self.LayerNorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
 
@@ -123,7 +129,7 @@ class CirBertAttention(nn.Module):
 class CirIntermediate(nn.Module):
     def __init__(self, config):
         super(CirIntermediate, self).__init__()
-        self.dense = CirMatrix(config.hidden_size, config.intermediate_size,block_size=config.block_size,train=config.train)
+        self.dense = CirMatrix(config.hidden_size, config.intermediate_size,block_size=config.block_size_intermediate,cir=config.cir_intermediate)
         # if isinstance(config.hidden_act, str):
         #     self.intermediate_act_fn = ACT2FN[config.hidden_act]
         # else:
@@ -138,7 +144,7 @@ class CirIntermediate(nn.Module):
 class CirOutput(nn.Module):
     def __init__(self, config):
         super(CirOutput, self).__init__()
-        self.dense = CirMatrix(config.intermediate_size, config.hidden_size,block_size=config.block_size,train=config.train)
+        self.dense = CirMatrix(config.intermediate_size, config.hidden_size,block_size=config.block_size_output,cir=config.cir_output)
         self.LayerNorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
 
@@ -226,18 +232,42 @@ def weight_keys_pair(pretrained_weights,model):
         if i!=j:
             print(f'{i} in model and {j} in pretrained_weights unpaired!')
 
+
+def GetCirBertForSequenceClassification(config,weights_path=None):
+    model = CirBertForSequenceClassification(config)
+    if weights_path is not None:
+        pretrained_weights = torch.load(weights_path)
+        weight_keys_pair(pretrained_weights,model)
+        model.load_state_dict(pretrained_weights,strict=False)
+        # handle the classifier layer weights with initial value
+        init.kaiming_uniform_(model.classifier.weight)
+        init.zeros_(model.classifier.bias)
+        print('weight loaded!')
+    return model
+
+
 if __name__ == "__main__":
     # test CirMatrix
-    # cir = CirMatrix(4,4,block_size=2,train=True)
+    # cir = CirMatrix(4,4,block_size=2,cir=True)
     # print(cir.weight.shape)
     # print(cir.weight)
     # print(cir.trans_to_cir())
 
     # test CirBertModel
     config = BertConfig.from_pretrained('./model/bert-large-uncased')
-    config.block_size = 2
-    config.train = True
+    config.block_size_selfattention = 2
+    config.block_size_attention_output = 2
+    config.block_size_intermediate = 2
+    config.block_size_output = 2
+
+
+    config.cir_attention_output = True
+    config.cir_selfattention = True
+    config.cir_intermediate = True
+    config.cir_output = True
+
     config.num_labels = 5
+
     model = CirBertForSequenceClassification(config)
     # print(config)
     
@@ -262,6 +292,9 @@ if __name__ == "__main__":
     weight_keys_pair(pretrained_weights,model)
 
     model.load_state_dict(pretrained_weights,strict=False)
+
+
+
 
     print('weight loaded!')
 

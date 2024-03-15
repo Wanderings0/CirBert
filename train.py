@@ -1,27 +1,79 @@
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
-from transformers import BertTokenizer
+from transformers import BertTokenizer, BertConfig
 from tqdm import tqdm
+from CirBert import GetCirBertForSequenceClassification
+import wandb, argparse,random,os
+from datasets import load_dataset, load_from_disk
 
-# 加载数据集
-from torchtext.datasets import AG_NEWS
-train_dataset, test_dataset = AG_NEWS(root='.data', split=('train', 'test'))
+# TODO: train the CirBertForSequenceClassification model on the AG News dataset
+# 1. WandB
+# 2. Data Preprocessing is slow
+# 3. train is slow, the bottleneck may be the trans_to_cir function.
+# 4. consider appropriate logging
+# 5. original model result should be done
 
-# 创建分词器
+
+def set_seed(seed):
+    random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.benchmark=False
+    torch.backends.cudnn.deterministic=True
+
+
+argparser = argparse.ArgumentParser()
+# different block size for different layers
+argparser.add_argument('--block_size_selfattention', type=int, default=2)
+argparser.add_argument('--block_size_attention_output', type=int, default=2)
+argparser.add_argument('--block_size_intermediate', type=int, default=2)
+argparser.add_argument('--block_size_output', type=int, default=2)
+
+# whether to use circulate matrix for different layers
+argparser.add_argument('--cir_selfattention', type=bool, default=True)
+argparser.add_argument('--cir_attention_output', type=bool, default=True)
+argparser.add_argument('--cir_intermediate', type=bool, default=True)
+argparser.add_argument('--cir_output', type=bool, default=True)
+
+# hyperparameters
+argparser.add_argument('--lr', type=float, default=2e-5)
+argparser.add_argument('--batch_size', type=int, default=640)
+argparser.add_argument('--num_epochs', type=int, default=1)
+argparser.add_argument('--seed', type=int, default=42)
+argparser.add_argument('--max_length', type=int, default=128)
+argparser.add_argument('--num_workers', type=int, default=2)
+
+args = argparser.parse_args()
+
+config = BertConfig.from_pretrained('model/bert-base-uncased')
+
+config.update(args.__dict__)
+# print(config)
+device = torch.device("cuda:5" if torch.cuda.is_available() else "cpu")
+set_seed(config.seed)
+
+
+# load raw dataset
+dataset = load_dataset('data/ag_news/data')
+# print(dataset)
+
+# tokenizer
 tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 
-# 数据预处理
+
 def preprocess_data(data):
     input_ids = []
     attention_masks = []
     labels = []
     for sample in data:
-        text, label = sample.text, sample.label
+        # print(sample)
+        text, label = sample['text'], sample['label']
         encoded = tokenizer.encode_plus(
             text,
             add_special_tokens=True,
-            max_length=128,
+            max_length=config.max_length,
             padding='max_length',
             truncation=True,
             return_attention_mask=True,
@@ -33,91 +85,98 @@ def preprocess_data(data):
     input_ids = torch.cat(input_ids, dim=0)
     attention_masks = torch.cat(attention_masks, dim=0)
     labels = torch.LongTensor(labels)
+    # print(input_ids.shape, attention_masks.shape, labels.shape)
     return input_ids, attention_masks, labels
 
-# 准备数据集
-train_inputs, train_masks, train_labels = preprocess_data(train_dataset)
-test_inputs, test_masks, test_labels = preprocess_data(test_dataset)
+# prepare the data
+train_inputs, train_masks, train_labels = preprocess_data(dataset['train'])
+test_inputs, test_masks, test_labels = preprocess_data(dataset['test'])
 
-# 创建数据加载器
-batch_size = 32
+
+# dataloader
+
 train_data = DataLoader(
     list(zip(train_inputs, train_masks, train_labels)),
-    batch_size=batch_size,
-    shuffle=True
+    batch_size=config.batch_size,
+    shuffle=True,
+    num_workers=config.num_workers
 )
 test_data = DataLoader(
     list(zip(test_inputs, test_masks, test_labels)),
-    batch_size=batch_size,
-    shuffle=False
+    batch_size=config.batch_size,
+    shuffle=False,
+    num_workers=config.num_workers
 )
+print(f'len of train_data is {len(train_data)}')
+print(f'len of test_data is {len(test_data)}')
+# print(train_data.dataset[0])
+# save the train_data and test_data
+# torch.save(train_data, 'train_data.pth')
+# torch.save(test_data, 'test_data.pth')
 
-# 加载预训练权重和配置
-pretrained_weights = torch.load('bert-base-uncased.pth')
-config = BertConfig(
-    vocab_size=30522,
-    hidden_size=768,
-    num_hidden_layers=12,
-    num_attention_heads=12,
-    intermediate_size=3072,
-    max_position_embeddings=512,
-    type_vocab_size=2,
-    layer_norm_eps=1e-12,
-    hidden_dropout_prob=0.1,
-    attention_probs_dropout_prob=0.1,
-    block_size=4
-)
+# exit(0)
 
-# 创建模型和分类头
-model = CirBertModel(config, pretrained_weights)
-classifier = nn.Linear(config.hidden_size, 4)  # AGNews有4个类别
+# read the train_data and test_data
+# train_data = torch.load('train_data.pth')
+# test_data = torch.load('test_data.pth')
 
-# 优化器和损失函数
-optimizer = torch.optim.AdamW(list(model.parameters()) + list(classifier.parameters()), lr=2e-5)
+config.num_labels = 4
+
+model = GetCirBertForSequenceClassification(config,weights_path='./model/bert-base-uncased/pytorch_model.bin')
+model.to(device)
+
+optimizer = torch.optim.AdamW(model.parameters(), lr=config.lr)
 criterion = nn.CrossEntropyLoss()
 
-# 训练函数
-def train_epoch(model, classifier, data_loader, optimizer, criterion):
-    model.train()
-    classifier.train()
+def evaluate(model, test_loader, device):
+    model.eval()
     total_loss = 0
-    for batch in tqdm(data_loader, total=len(data_loader)):
-        input_ids, attention_mask, labels = batch
-        outputs = model(input_ids, attention_mask)
-        logits = classifier(outputs[:, 0])  # 只使用[CLS]的输出
-        loss = criterion(logits, labels)
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for inputs, masks, labels in test_loader:
+            inputs, masks, labels = inputs.to(device), masks.to(device), labels.to(device)
+            outputs = model(inputs, masks)
+            loss = criterion(outputs, labels)
+            total_loss += loss.item()
+            _, predicted = torch.max(outputs, dim=1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+    return total_loss/total, 100*correct / total
+print("config is:")
+print(config)
+print("_______________________________")
+wandb.init(project="CirBert", config=config)
+wandb.run.name = f"agnews"
+
+best_acc = 0.0
+best_model_state = None
+for epoch in range(config.num_epochs):
+    model.train()
+    total_loss = 0
+    total = 0
+    for inputs, masks, labels in tqdm(train_data):
+        total+=1
+        inputs, masks, labels = inputs.to(device), masks.to(device), labels.to(device)
+        optimizer.zero_grad()
+        outputs = model(inputs, masks)
+        loss = criterion(outputs, labels)
         total_loss += loss.item()
         loss.backward()
         optimizer.step()
-        optimizer.zero_grad()
-    return total_loss / len(data_loader)
+        if total % 20 == 0:
+            print(f'Epoch {epoch+1}/{config.num_epochs}, Step {total}/{len(train_data)}, Train Loss: {loss.item():.4f}')
+        
+    avg_loss = total_loss / len(train_data)
+    val_loss, val_acc = evaluate(model, test_data, device)
+    print(f'Epoch {epoch+1}/{config.num_epochs}, Train Loss: {avg_loss:.4f}, Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.2f}%')
+    wandb.log({"train_loss": avg_loss, "val_loss": val_loss, "val_acc": val_acc})
+    if val_acc > best_acc:
+        best_acc = val_acc
+        best_model_state = model.state_dict()
+if best_model_state is not None:
+    if not os.path.exists('./model_best'):
+        os.makedirs('./model_best')
+    torch.save(best_model_state, f'./model_best/bert-base-best.pth')
 
-# 测试函数
-def test_epoch(model, classifier, data_loader):
-    model.eval()
-    classifier.eval()
-    total_loss = 0
-    total_correct = 0
-    with torch.no_grad():
-        for batch in tqdm(data_loader, total=len(data_loader)):
-            input_ids, attention_mask, labels = batch
-            outputs = model(input_ids, attention_mask)
-            logits = classifier(outputs[:, 0])
-            loss = criterion(logits, labels)
-            total_loss += loss.item()
-            predictions = torch.argmax(logits, dim=1)
-            total_correct += (predictions == labels).sum().item()
-    accuracy = total_correct / len(data_loader.dataset)
-    return total_loss / len(data_loader), accuracy
-
-# 训练循环
-num_epochs = 3
-best_accuracy = 0
-for epoch in range(num_epochs):
-    train_loss = train_epoch(model, classifier, train_data, optimizer, criterion)
-    test_loss, test_accuracy = test_epoch(model, classifier, test_data)
-    print(f'Epoch {epoch+1}: Train Loss = {train_loss:.4f}, Test Loss = {test_loss:.4f}, Test Accuracy = {test_accuracy:.4f}')
-    if test_accuracy > best_accuracy:
-        best_accuracy = test_accuracy
-        torch.save(model.state_dict(), 'best_model.pth')
-        torch.save(classifier.state_dict(), 'best_classifier.pth')
+wandb.finish()
