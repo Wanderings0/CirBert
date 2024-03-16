@@ -7,12 +7,16 @@ from CirBert import GetCirBertForSequenceClassification
 import wandb, argparse,random,os
 from datasets import load_dataset, load_from_disk
 
-# TODO: train the CirBertForSequenceClassification model on the AG News dataset
-# 1. WandB
-# 2. Data Preprocessing is slow
+# TODO: 
+
+
 # 3. train is slow, the bottleneck may be the trans_to_cir function.
-# 4. consider appropriate logging
-# 5. original model result should be done
+# 4. better logging
+
+# 6. bert-large-uncased
+
+# 8. try Trainer
+
 
 
 def set_seed(seed):
@@ -93,6 +97,8 @@ train_inputs, train_masks, train_labels = preprocess_data(dataset['train'])
 test_inputs, test_masks, test_labels = preprocess_data(dataset['test'])
 
 
+
+
 # dataloader
 
 train_data = DataLoader(
@@ -164,8 +170,8 @@ for epoch in range(config.num_epochs):
         total_loss += loss.item()
         loss.backward()
         optimizer.step()
-        if total % 20 == 0:
-            print(f'Epoch {epoch+1}/{config.num_epochs}, Step {total}/{len(train_data)}, Train Loss: {loss.item():.4f}')
+        # if total % 20 == 0:
+        #     print(f'Epoch {epoch+1}/{config.num_epochs}, Step {total}/{len(train_data)}, Train Loss: {loss.item():.4f}')
         
     avg_loss = total_loss / len(train_data)
     val_loss, val_acc = evaluate(model, test_data, device)

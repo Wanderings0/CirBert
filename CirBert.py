@@ -10,8 +10,7 @@ from transformers.models.bert.modeling_bert import BertEmbeddings, BertPooler
 
 
 #       4. if the out_features%block_size!=0, we need to do extra work
-#       5. BertForSequencetoSequence need write decoder part from scratch
-#       6. optimize the trans_to_cir function use vectorization
+#       5. BertForSequencetoSequence need decoder part
 
 class CirMatrix(nn.Module):
     def __init__(self,in_features,out_features,block_size=2,cir=False,weight=None,device='cuda:0'):
