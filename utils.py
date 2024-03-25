@@ -13,7 +13,7 @@ def get_encoded_dataset(dataset_name, tokenizer, max_length):
             dataset = load_dataset('data/glue/cola')
             class_nums = 2
             def preprocess(examples):
-                return tokenizer(examples['text'], truncation=True, max_length=max_length, padding='max_length',return_tensors='pt')
+                return tokenizer(examples['sentence'], truncation=True, max_length=max_length, padding='max_length',return_tensors='pt')
             encoded_dataset = dataset.map(preprocess, batched=True)
             return encoded_dataset, class_nums
         case 'mnli':

@@ -36,11 +36,14 @@ argparser.add_argument('--cir_output', type=bool, default=True)
 
 # hyperparameters
 argparser.add_argument('--lr', type=float, default=2e-5)
-argparser.add_argument('--batch_size', type=int, default=64)
+argparser.add_argument('--batch_size', type=int, default=128)
 argparser.add_argument('--num_epochs', type=int, default=3)
 argparser.add_argument('--seed', type=int, default=42)
-argparser.add_argument('--max_length', type=int, default=256)
-argparser.add_argument('--dataset', type=str, default='mrpc')
+argparser.add_argument('--max_length', type=int, default=128)
+argparser.add_argument('--dataset', type=str, default='cola')
+argparser.add_argument('--device', type=int, default=2)
+
+
 
 args = argparser.parse_args()
 
@@ -48,6 +51,7 @@ config = BertConfig.from_pretrained('model/bert-base-uncased')
 
 config.update(args.__dict__)
 # print(config)
+device = torch.device("cuda:"+str(config.device) if torch.cuda.is_available() else "cpu")
 
 set_seed(config.seed)
 
