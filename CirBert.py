@@ -1,4 +1,4 @@
-import math
+import math,time
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -13,7 +13,7 @@ from transformers.models.bert.modeling_bert import BertEmbeddings, BertPooler
 #       5. BertForSequencetoSequence need decoder part
 
 class CirMatrix(nn.Module):
-    def __init__(self,in_features,out_features,block_size=2,cir=False,weight=None,device='cuda:0'):
+    def __init__(self,in_features,out_features,block_size=2,cir=False,weight=None):
         super(CirMatrix,self).__init__()
         self.in_features = in_features
         self.out_features = out_features
@@ -55,6 +55,7 @@ class CirMatrix(nn.Module):
         w = w.permute(0,2,1,3).reshape(self.out_features,self.in_features)
 
         return w
+    
     def forward(self,x):
         if self.cir:
             weight = self.trans_to_cir().to(x.device)
@@ -206,10 +207,15 @@ class CirBertForSequenceClassification(nn.Module):
         # print(self.classifier.weight.shape)
         self.config = config
 
-    def forward(self, input_ids, attention_mask):
+    def forward(self, input_ids, attention_mask, labels=None):
         _,pooled_output = self.bert(input_ids, attention_mask)
         sequence_output = self.dropout(pooled_output)
         logits = self.classifier(sequence_output)
+        outputs = (logits,)
+        if labels is not None:
+            loss_fct = nn.CrossEntropyLoss()
+            loss = loss_fct(logits.view(-1, self.config.num_labels), labels.view(-1))
+            outputs = (loss,)+ outputs
         return logits
     
 def weight_keys_pair(pretrained_weights,model):
@@ -247,10 +253,11 @@ def GetCirBertForSequenceClassification(config,weights_path=None):
 
 if __name__ == "__main__":
     # test CirMatrix
-    # cir = CirMatrix(4,4,block_size=2,cir=True)
-    # print(cir.weight.shape)
-    # print(cir.weight)
-    # print(cir.trans_to_cir())
+    cir = CirMatrix(4,4,block_size=2,cir=True)
+    print(cir.weight.shape)
+    print(cir.weight)
+    print(cir.trans_to_cir())
+    exit(0)
 
     # test CirBertModel
     config = BertConfig.from_pretrained('./model/bert-large-uncased')

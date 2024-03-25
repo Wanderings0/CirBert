@@ -46,8 +46,9 @@ argparser.add_argument('--lr', type=float, default=2e-5)
 argparser.add_argument('--batch_size', type=int, default=640)
 argparser.add_argument('--num_epochs', type=int, default=1)
 argparser.add_argument('--seed', type=int, default=42)
-argparser.add_argument('--max_length', type=int, default=128)
+argparser.add_argument('--max_length', type=int, default=32)
 argparser.add_argument('--num_workers', type=int, default=2)
+argparser.add_argument('--dataset', type=str, default='agnews')
 
 args = argparser.parse_args()
 
@@ -55,9 +56,8 @@ config = BertConfig.from_pretrained('model/bert-base-uncased')
 
 config.update(args.__dict__)
 # print(config)
-device = torch.device("cuda:5" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
 set_seed(config.seed)
-
 
 # load raw dataset
 dataset = load_dataset('data/ag_news/data')
@@ -92,12 +92,9 @@ def preprocess_data(data):
     # print(input_ids.shape, attention_masks.shape, labels.shape)
     return input_ids, attention_masks, labels
 
-# prepare the data
+# # prepare the data
 train_inputs, train_masks, train_labels = preprocess_data(dataset['train'])
 test_inputs, test_masks, test_labels = preprocess_data(dataset['test'])
-
-
-
 
 # dataloader
 
@@ -115,16 +112,7 @@ test_data = DataLoader(
 )
 print(f'len of train_data is {len(train_data)}')
 print(f'len of test_data is {len(test_data)}')
-# print(train_data.dataset[0])
-# save the train_data and test_data
-# torch.save(train_data, 'train_data.pth')
-# torch.save(test_data, 'test_data.pth')
 
-# exit(0)
-
-# read the train_data and test_data
-# train_data = torch.load('train_data.pth')
-# test_data = torch.load('test_data.pth')
 
 config.num_labels = 4
 
@@ -133,6 +121,7 @@ model.to(device)
 
 optimizer = torch.optim.AdamW(model.parameters(), lr=config.lr)
 criterion = nn.CrossEntropyLoss()
+
 
 def evaluate(model, test_loader, device):
     model.eval()
@@ -180,9 +169,9 @@ for epoch in range(config.num_epochs):
     if val_acc > best_acc:
         best_acc = val_acc
         best_model_state = model.state_dict()
-if best_model_state is not None:
-    if not os.path.exists('./model_best'):
-        os.makedirs('./model_best')
-    torch.save(best_model_state, f'./model_best/bert-base-best.pth')
+# if best_model_state is not None:
+#     if not os.path.exists('./model_best'):
+#         os.makedirs('./model_best')
+#     torch.save(best_model_state, f'./model_best/bert-base-best.pth')
 
 wandb.finish()
