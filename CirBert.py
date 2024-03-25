@@ -191,8 +191,8 @@ class CirBertModel(nn.Module):
     #     #load embedding layer
     #     self.embeddings.word_embeddings.weight = pretrained_weights['word_embeddings.weight']
 
-    def forward(self, input_ids, attention_mask):
-        embedding_output = self.embeddings(input_ids)
+    def forward(self, input_ids, attention_mask,token_type_ids=None):
+        embedding_output = self.embeddings(input_ids=input_ids,token_type_ids=token_type_ids)
         all_encoder_layers = self.encoder(embedding_output, attention_mask)
         sequence_output = all_encoder_layers[-1]
         pooled_output = self.pooler(sequence_output)
@@ -207,8 +207,8 @@ class CirBertForSequenceClassification(nn.Module):
         # print(self.classifier.weight.shape)
         self.config = config
 
-    def forward(self, input_ids, attention_mask, labels=None):
-        _,pooled_output = self.bert(input_ids, attention_mask)
+    def forward(self, input_ids, attention_mask, token_type_ids=None,labels=None):
+        _,pooled_output = self.bert(input_ids, attention_mask,token_type_ids)
         sequence_output = self.dropout(pooled_output)
         logits = self.classifier(sequence_output)
         outputs = (logits,)
@@ -216,7 +216,7 @@ class CirBertForSequenceClassification(nn.Module):
             loss_fct = nn.CrossEntropyLoss()
             loss = loss_fct(logits.view(-1, self.config.num_labels), labels.view(-1))
             outputs = (loss,)+ outputs
-        return logits
+        return outputs
     
 def weight_keys_pair(pretrained_weights,model):
     # print unpaired keys after necessary changes 

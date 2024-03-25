@@ -1,5 +1,4 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
@@ -46,7 +45,7 @@ args = argparser.parse_args()
 config = BertConfig.from_pretrained('model/bert-base-uncased')
 
 config.update(args.__dict__)
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+# device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 set_seed(config.seed)
 
 # load raw dataset 
@@ -97,6 +96,7 @@ training_args = TrainingArguments(
     metric_for_best_model='accuracy',
     greater_is_better=True,
     report_to='wandb',
+    auto_find_batch_size=True,
 )
 
 
