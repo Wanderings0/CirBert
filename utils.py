@@ -17,7 +17,7 @@ def get_encoded_dataset(dataset_name, tokenizer, max_length):
             encoded_dataset = dataset.map(preprocess, batched=True)
             return encoded_dataset, class_nums
         case 'mnli':
-            dataset = load_dataset('data/glue/mnli')
+            dataset = load_dataset('parquet',data_files={'train':'data/glue/mnli/train-00000-of-00001.parquet','test':'data/glue/mnli/test_matched-00000-of-00001.parquet','validation':'data/glue/mnli/validation_matched-00000-of-00001.parquet'})
             class_nums = 3
             def preprocess(examples):
                 return tokenizer(examples['premise'], examples['hypothesis'], truncation=True, max_length=max_length, padding='max_length',return_tensors='pt')

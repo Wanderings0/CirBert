@@ -9,7 +9,7 @@ from datasets import load_dataset, load_from_disk
 from utils import get_encoded_dataset
 
 
-device = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
+# device = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
 
 
 def set_seed(seed):
@@ -61,14 +61,12 @@ tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 
 # load raw dataset
 encoded_dataset, config.num_labels = get_encoded_dataset(config.dataset, tokenizer, config.max_length)
-
+print(encoded_dataset)
 train_dataset = encoded_dataset['train']
-if config.dataset == 'mnli':
-    validation_dataset = encoded_dataset['validation_mathched']
-    test_dataset = encoded_dataset['test_matched']
-else:
-    validation_dataset = encoded_dataset['validation']
-    test_dataset = encoded_dataset['test']
+
+
+validation_dataset = encoded_dataset['validation']
+test_dataset = encoded_dataset['test']
 
 
 train_data = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True)
@@ -132,7 +130,7 @@ for epoch in range(config.num_epochs):
         
     avg_loss = total_loss / len(train_data)
     val_loss, val_acc = evaluate(model, validation_data, device)
-    print(f'Epoch {epoch+1}/{config.num_epochs}, Train Loss: {avg_loss:.4f}, Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.2f}%')
+    print(f'Epoch {epoch+1}/{config.num_epochs}, Train Loss: {avg_loss:.4f}, Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.2f}%',flush=True)
     wandb.log({"train_loss": avg_loss, "val_loss": val_loss, "val_acc": val_acc})
     if val_acc > best_acc:
         best_acc = val_acc
