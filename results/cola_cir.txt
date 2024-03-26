@@ -57,3 +57,8 @@ BertConfig {
 }
 
 --------------------
+Epoch 1/5, Train Loss: 0.6429, Val Loss: 0.0054, Val Acc: 69.13%
+Epoch 2/5, Train Loss: 0.6325, Val Loss: 0.0052, Val Acc: 69.13%
+Epoch 3/5, Train Loss: 0.6303, Val Loss: 0.0053, Val Acc: 69.13%
+Epoch 4/5, Train Loss: 0.6238, Val Loss: 0.0053, Val Acc: 69.13%
+Epoch 5/5, Train Loss: 0.6221, Val Loss: 0.0052, Val Acc: 69.13%

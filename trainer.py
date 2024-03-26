@@ -2,13 +2,15 @@ import os
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
-from transformers import BertTokenizer, BertConfig, Trainer, TrainingArguments
+from transformers import BertTokenizer, BertConfig, Trainer, TrainingArguments, BertForSequenceClassification
 from tqdm import tqdm
 from CirBert import GetCirBertForSequenceClassification
 import wandb, argparse, random, os
 from datasets import load_dataset, load_from_disk
 from utils import get_encoded_dataset
 
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,2"
 
 
 def set_seed(seed):
@@ -52,7 +54,7 @@ set_seed(config.seed)
 dataset = load_dataset('data/glue/cola')
 
 # 只取dataset的10%作为训练集
-dataset = dataset['test'].train_test_split(test_size=0.1)
+dataset = dataset['validation'].train_test_split(test_size=0.1)
 
 # tokenizer
 tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
