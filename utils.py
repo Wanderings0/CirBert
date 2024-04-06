@@ -28,14 +28,14 @@ def get_encoded_dataset(dataset_name, tokenizer, max_length):
             return encoded_dataset, class_nums
         case 'mrpc':
             dataset = load_dataset('data/glue/mrpc')
-            class_nums = 3
+            class_nums = 2
             def preprocess(examples):
                 return tokenizer(examples['sentence1'], examples['sentence2'], truncation=True, max_length=max_length, padding='max_length',return_tensors='pt')
             encoded_dataset = dataset.map(preprocess, batched=True, remove_columns=['sentence1', 'sentence2', 'idx'])
             return encoded_dataset, class_nums
         case 'qnli':
             dataset = load_dataset('parquet',data_files={'train':'data/glue/qnli/train-00000-of-00001.parquet','test':'data/glue/qnli/test-00000-of-00001.parquet','validation':'data/glue/qnli/validation-00000-of-00001.parquet'})
-            class_nums = 1
+            class_nums = 2
             def preprocess(examples):
                 return tokenizer(examples['question'], examples['sentence'], truncation=True, max_length=max_length, padding='max_length',return_tensors='pt')
             encoded_dataset = dataset.map(preprocess, batched=True, remove_columns=['question', 'sentence', 'idx'])
@@ -74,7 +74,15 @@ def get_encoded_dataset(dataset_name, tokenizer, max_length):
             class_nums = 2
             def preprocess(examples):
                 return tokenizer(examples['sentence1'], examples['sentence2'], truncation=True, max_length=max_length, padding='max_length',return_tensors='pt')
-            encoded_dataset = dataset.map(preprocess, batched=True)
+            encoded_dataset = dataset.map(preprocess, batched=True, remove_columns=['sentence1', 'sentence2', 'idx'])
+            return encoded_dataset, class_nums
+        case 'emotion':
+            #加载train.jsonl.gz, test.jsonl.gz, validation.jsonl.gz
+            dataset = load_dataset('json', data_files={'train':'data/emotion/data/train.jsonl.gz','test':'data/emotion/data/test.jsonl.gz','validation':'data/emotion/data/validation.jsonl.gz'})
+            class_nums = 6
+            def preprocess(examples):
+                return tokenizer(examples['text'], truncation=True, max_length=max_length, padding='max_length',return_tensors='pt')
+            encoded_dataset = dataset.map(preprocess, batched=True, remove_columns=['text'])
             return encoded_dataset, class_nums
         case _:
             raise ValueError(f"Dataset {dataset_name} is not supported.")
@@ -82,12 +90,17 @@ def get_encoded_dataset(dataset_name, tokenizer, max_length):
 if __name__ == '__main__':
     from transformers import BertTokenizer
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-    encoded_dataset, class_nums = get_encoded_dataset('agnews', tokenizer, 256)
+    # encoded_dataset, class_nums = get_encoded_dataset('agnews', tokenizer, 256)
+    # print(encoded_dataset)
+    # print(class_nums)
+    # encoded_dataset, class_nums = get_encoded_dataset('cola', tokenizer, 256)
+    # print(encoded_dataset)
+    # print(class_nums)
+
+    #测试emotion数据集
+    encoded_dataset, class_nums = get_encoded_dataset('emotion', tokenizer, 64)
     print(encoded_dataset)
-    print(class_nums)
-    encoded_dataset, class_nums = get_encoded_dataset('cola', tokenizer, 256)
-    print(encoded_dataset)
-    print(class_nums)
+    
     
     # encoded_dataset, class_nums = get_encoded_dataset('not_supported', tokenizer, 256)
     # print(encoded_dataset)

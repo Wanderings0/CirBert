@@ -1,19 +1,17 @@
 DatasetDict({
     train: Dataset({
-        features: ['sentence', 'label', 'idx', 'input_ids', 'token_type_ids', 'attention_mask'],
+        features: ['label', 'input_ids', 'token_type_ids', 'attention_mask'],
         num_rows: 8551
     })
     validation: Dataset({
-        features: ['sentence', 'label', 'idx', 'input_ids', 'token_type_ids', 'attention_mask'],
+        features: ['label', 'input_ids', 'token_type_ids', 'attention_mask'],
         num_rows: 1043
     })
     test: Dataset({
-        features: ['sentence', 'label', 'idx', 'input_ids', 'token_type_ids', 'attention_mask'],
+        features: ['label', 'input_ids', 'token_type_ids', 'attention_mask'],
         num_rows: 1063
     })
 })
-classifier.weight in model and cls.predictions.bias in pretrained_weights unpaired!
-classifier.bias in model and cls.predictions.transform.dense.weight in pretrained_weights unpaired!
 weight loaded!
 The Config is:
 BertConfig {
@@ -21,18 +19,18 @@ BertConfig {
     "BertForMaskedLM"
   ],
   "attention_probs_dropout_prob": 0.1,
-  "batch_size": 128,
+  "batch_size": 32,
   "block_size_attention_output": 2,
   "block_size_intermediate": 2,
   "block_size_output": 2,
   "block_size_selfattention": 2,
-  "cir_attention_output": true,
-  "cir_intermediate": true,
-  "cir_output": true,
-  "cir_selfattention": true,
+  "cir_attention_output": false,
+  "cir_intermediate": false,
+  "cir_output": false,
+  "cir_selfattention": false,
   "classifier_dropout": null,
   "dataset": "cola",
-  "device": 2,
+  "device": 7,
   "gradient_checkpointing": false,
   "hidden_act": "gelu",
   "hidden_dropout_prob": 0.1,
@@ -40,8 +38,8 @@ BertConfig {
   "initializer_range": 0.02,
   "intermediate_size": 3072,
   "layer_norm_eps": 1e-12,
-  "lr": 5e-05,
-  "max_length": 128,
+  "lr": 0.0001,
+  "max_length": 512,
   "max_position_embeddings": 512,
   "model_type": "bert",
   "num_attention_heads": 12,
@@ -57,8 +55,9 @@ BertConfig {
 }
 
 --------------------
-Epoch 1/5, Train Loss: 0.6429, Val Loss: 0.0054, Val Acc: 69.13%
-Epoch 2/5, Train Loss: 0.6325, Val Loss: 0.0052, Val Acc: 69.13%
-Epoch 3/5, Train Loss: 0.6303, Val Loss: 0.0053, Val Acc: 69.13%
-Epoch 4/5, Train Loss: 0.6238, Val Loss: 0.0053, Val Acc: 69.13%
-Epoch 5/5, Train Loss: 0.6221, Val Loss: 0.0052, Val Acc: 69.13%
+--------------------
+Test Loss: 0.0207, Test Acc: 68.17%
+Epoch 1/5, Train Loss: 0.5046, Val Loss: 0.0145, Val Acc: 79.10%
+Epoch 2/5, Train Loss: 0.2879, Val Loss: 0.0164, Val Acc: 80.54%
+Epoch 3/5, Train Loss: 0.2672, Val Loss: 0.0164, Val Acc: 80.54%
+Epoch 4/5, Train Loss: 0.2672, Val Loss: 0.0164, Val Acc: 80.54%

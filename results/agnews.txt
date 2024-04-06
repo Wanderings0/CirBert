@@ -113,3 +113,6 @@ BertConfig {
 
 --------------------
 Epoch 1/2, Train Loss: 0.7506, Val Loss: 0.0006, Val Acc: 87.66%
+Epoch 2/2, Train Loss: 0.3622, Val Loss: 0.0006, Val Acc: 88.55%
+--------------------
+Test Loss: 0.0006, Test Acc: 88.55%, Best Val Acc: 88.55%

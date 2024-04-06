@@ -98,7 +98,6 @@ training_args = TrainingArguments(
     metric_for_best_model='accuracy',
     greater_is_better=True,
     report_to='wandb',
-    auto_find_batch_size=True,
 )
 
 

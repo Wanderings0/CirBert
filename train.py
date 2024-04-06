@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
-from transformers import BertTokenizer, BertConfig
+from transformers import BertTokenizer, BertConfig, BertForSequenceClassification
 from tqdm import tqdm
 from CirBert import GetCirBertForSequenceClassification
 import wandb, argparse,random,os
@@ -30,10 +30,10 @@ argparser.add_argument('--block_size_intermediate', type=int, default=2)
 argparser.add_argument('--block_size_output', type=int, default=2)
 
 # whether to use circulate matrix for different layers
-argparser.add_argument('--cir_selfattention', type=bool, default=False)
-argparser.add_argument('--cir_attention_output', type=bool, default=False)
-argparser.add_argument('--cir_intermediate', type=bool, default=False)
-argparser.add_argument('--cir_output', type=bool, default=False)
+argparser.add_argument('--cir_selfattention', type=bool, default=True)
+argparser.add_argument('--cir_attention_output', type=bool, default=True)
+argparser.add_argument('--cir_intermediate', type=bool, default=True)
+argparser.add_argument('--cir_output', type=bool, default=True)
 
 # hyperparameters
 argparser.add_argument('--lr', type=float, default=5e-4)
@@ -57,7 +57,7 @@ device = torch.device("cuda:"+str(config.device) if torch.cuda.is_available() el
 set_seed(config.seed)
 
 # tokenizer
-tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+tokenizer = BertTokenizer.from_pretrained('model/bert-base-uncased')
 data_collator = DataCollatorWithPadding(tokenizer=tokenizer, padding='max_length', max_length=config.max_length)
 
 
@@ -65,28 +65,29 @@ data_collator = DataCollatorWithPadding(tokenizer=tokenizer, padding='max_length
 encoded_dataset, config.num_labels = get_encoded_dataset(config.dataset, tokenizer, config.max_length)
 print(encoded_dataset)
 train_dataset = encoded_dataset['train']
-print(train_dataset[0])
+# print(train_dataset[0])
 
-
-validation_dataset = encoded_dataset['validation']
-test_dataset = encoded_dataset['test']
 # print(test_dataset[0])
-
-
 train_data = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True, collate_fn=data_collator,num_workers=4)
-# validation_data = DataLoader(validation_dataset, batch_size=config.batch_size, shuffle=False)
-if config.dataset in ['qnli','mnli']:
+
+if config.dataset in ['qnli','mnli','cola','rte','sst2','qqp','rte','wnli']:
+    validation_dataset = encoded_dataset['validation']
+    validation_data = DataLoader(validation_dataset, batch_size=config.batch_size, shuffle=False)
     test_data = DataLoader(validation_dataset, batch_size=config.batch_size, shuffle=False, collate_fn=data_collator,num_workers=4)
 else:
+    test_dataset = encoded_dataset['test']
+    train_data = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True, collate_fn=data_collator,num_workers=4)
     test_data = DataLoader(test_dataset, batch_size=config.batch_size, shuffle=False, collate_fn=data_collator,num_workers=4)
-
+# test_data = DataLoader(test_dataset, batch_size=config.batch_size, shuffle=False, collate_fn=data_collator,num_workers=4)
 
 model = GetCirBertForSequenceClassification(config,weights_path='./model/bert-base-uncased/pytorch_model.bin')
+# config2 = BertConfig.from_pretrained('model/bert-base-uncased',num_labels=config.num_labels,hidden_dropout_prob=0.1)
+# model = BertForSequenceClassification.from_pretrained('model/bert-base-uncased', config=config)
 model.to(device)
 
 optimizer = torch.optim.AdamW(model.parameters(), lr=config.lr)
 # print(model.parameters())
-sheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.2)
+sheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=200, gamma=0.2)
 if config.num_labels == 1:
     criterion = nn.BCEWithLogitsLoss()
 else:
@@ -105,7 +106,7 @@ def evaluate(model, test_loader, device):
             masks = data['attention_mask'].to(device)
             token_type_ids = data['token_type_ids'].to(device)
             labels = data['labels'].to(device)
-            outputs = model(inputs, masks,token_type_ids)[-1]
+            outputs = model(inputs, masks,token_type_ids)
             total += labels.size(0)
             if config.num_labels == 1:
                 # outputs经过sigmoid函数后的值
@@ -144,18 +145,28 @@ for epoch in range(config.num_epochs):
         token_type_ids = data['token_type_ids'].to(device)
         labels = data['labels'].to(device)
         optimizer.zero_grad()
-        outputs = model(inputs, masks,token_type_ids)[-1]
+        outputs = model(inputs, masks,token_type_ids)
         if config.num_labels == 1:
             outputs = torch.sigmoid(outputs)
             loss = criterion(outputs, labels.unsqueeze(1).float())
         else:
+            
             loss = criterion(outputs, labels)
+            # print(outputs.detach().cpu().numpy())
+            # predicted = torch.argmax(outputs, dim=1)
+            # 把predicted和label拼接起来
+            # print(torch.cat((predicted.unsqueeze(1),labels.unsqueeze(1)),dim=1))
+            # print(loss.item())
         total_loss += loss.item()
+        # print(loss.item())
         loss.backward()
+        # print(model.classifier.weight.grad)
+        # if (total-1)%5==0:
+        #     print(model.bert.encoder.layer[0].attention.self.query.weight.grad,flush=True)
         optimizer.step()
         # sheduler.step()
         # if total % 20 == 0:
-        #     print(f'Epoch {epoch+1}/{config.num_epochs}, Step {total}/{len(train_data)}, Train Loss: {loss.item():.4f}')
+        #     print(f'Epoch {epoch+1}/{config.num_epochs}, Step {total}/{len(train_data)}, Train Loss: {total_loss}/{total}')
         
     avg_loss = total_loss / len(train_data)
     val_loss, val_acc = evaluate(model, test_data, device)
@@ -167,10 +178,13 @@ for epoch in range(config.num_epochs):
 if best_model_state is not None:
     if not os.path.exists('./model_best'):
         os.makedirs('./model_best')
-    torch.save(best_model_state, f'./model_best/bert-base-{config.dataset}.pth')
+    if config.cir_output:
+        torch.save(best_model_state, f'./model_best/cir-bert-base-{config.dataset}.pth')
+    else:
+        torch.save(best_model_state, f'./model_best/bert-base-{config.dataset}.pth')
 
-test_loss, test_acc = evaluate(model, test_data, device)
+# test_loss, test_acc = evaluate(model, test_data, device)
 print("-"*20)
-print(f'Test Loss: {test_loss:.4f}, Test Acc: {test_acc:.2f}%, Best Val Acc: {best_acc:.2f}%')
+print(f'Best Val Acc: {best_acc:.2f}%')
 
 wandb.finish()

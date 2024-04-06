@@ -30,7 +30,7 @@ BertConfig {
   "cir_selfattention": false,
   "classifier_dropout": null,
   "dataset": "mrpc",
-  "device": 7,
+  "device": 1,
   "gradient_checkpointing": false,
   "hidden_act": "gelu",
   "hidden_dropout_prob": 0.1,
@@ -38,7 +38,7 @@ BertConfig {
   "initializer_range": 0.02,
   "intermediate_size": 3072,
   "layer_norm_eps": 1e-12,
-  "lr": 0.0001,
+  "lr": 4e-05,
   "max_length": 512,
   "max_position_embeddings": 512,
   "model_type": "bert",
@@ -57,10 +57,10 @@ BertConfig {
 --------------------
 --------------------
 Test Loss: 0.0249, Test Acc: 33.51%
-Epoch 1/5, Train Loss: 0.5740, Val Loss: 0.0161, Val Acc: 76.64%
-Epoch 2/5, Train Loss: 0.3178, Val Loss: 0.0128, Val Acc: 80.70%
-Epoch 3/5, Train Loss: 0.1087, Val Loss: 0.0183, Val Acc: 81.22%
-Epoch 4/5, Train Loss: 0.0367, Val Loss: 0.0229, Val Acc: 81.62%
-Epoch 5/5, Train Loss: 0.0226, Val Loss: 0.0232, Val Acc: 81.97%
+Epoch 1/5, Train Loss: 0.5698, Val Loss: 0.0146, Val Acc: 78.32%
+Epoch 2/5, Train Loss: 0.3433, Val Loss: 0.0126, Val Acc: 81.97%
+Epoch 3/5, Train Loss: 0.1504, Val Loss: 0.0176, Val Acc: 81.39%
+Epoch 4/5, Train Loss: 0.0684, Val Loss: 0.0230, Val Acc: 81.10%
+Epoch 5/5, Train Loss: 0.0382, Val Loss: 0.0361, Val Acc: 78.43%
 --------------------
-Test Loss: 0.0232, Test Acc: 81.97%, Best Val Acc: 81.97%
+Test Loss: 0.0361, Test Acc: 78.43%, Best Val Acc: 81.97%
