@@ -41,14 +41,14 @@ def get_encoded_dataset(dataset_name, tokenizer, max_length):
             encoded_dataset = dataset.map(preprocess, batched=True, remove_columns=['question', 'sentence', 'idx'])
             return encoded_dataset, class_nums
         case 'qqp':
-            dataset = load_dataset('data/glue/qqp')
+            dataset = load_dataset('parquet',data_files={'train':'data/glue/qqp/train-00000-of-00001.parquet','test':'data/glue/qqp/test-00000-of-00001.parquet','validation':'data/glue/qqp/validation-00000-of-00001.parquet'})
             class_nums = 2
             def preprocess(examples):
                 return tokenizer(examples['question1'], examples['question2'], truncation=True, max_length=max_length, padding='max_length',return_tensors='pt')
             encoded_dataset = dataset.map(preprocess, batched=True, remove_columns=['question1', 'question2', 'idx'])
             return encoded_dataset, class_nums
         case 'rte':
-            dataset = load_dataset('data/glue/rte')
+            dataset = load_dataset('parquet',data_files={'train':'data/glue/rte/train-00000-of-00001.parquet','test':'data/glue/rte/test-00000-of-00001.parquet','validation':'data/glue/rte/validation-00000-of-00001.parquet'})
             class_nums = 2
             def preprocess(examples):
                 return tokenizer(examples['sentence1'], examples['sentence2'], truncation=True, max_length=max_length, padding='max_length',return_tensors='pt')
@@ -70,7 +70,7 @@ def get_encoded_dataset(dataset_name, tokenizer, max_length):
         #     encoded_dataset = dataset.map(preprocess, batched=True)
         #     return encoded_dataset, class_nums
         case 'wnli':
-            dataset = load_dataset('data/glue/wnli')
+            dataset = load_dataset('parquet',data_files={'train':'data/glue/wnli/train-00000-of-00001.parquet','test':'data/glue/wnli/test-00000-of-00001.parquet','validation':'data/glue/wnli/validation-00000-of-00001.parquet'})
             class_nums = 2
             def preprocess(examples):
                 return tokenizer(examples['sentence1'], examples['sentence2'], truncation=True, max_length=max_length, padding='max_length',return_tensors='pt')

@@ -4,7 +4,7 @@ from torch.utils.data import DataLoader
 from transformers import BertTokenizer, BertConfig, BertForSequenceClassification
 from tqdm import tqdm
 from CirBert import GetCirBertForSequenceClassification
-import wandb, argparse,random,os
+import wandb, argparse,random,os,transformers
 from datasets import load_dataset, load_from_disk
 from utils import get_encoded_dataset
 from transformers import DataCollatorWithPadding
@@ -30,10 +30,10 @@ argparser.add_argument('--block_size_intermediate', type=int, default=2)
 argparser.add_argument('--block_size_output', type=int, default=2)
 
 # whether to use circulate matrix for different layers
-argparser.add_argument('--cir_selfattention', type=bool, default=True)
-argparser.add_argument('--cir_attention_output', type=bool, default=True)
-argparser.add_argument('--cir_intermediate', type=bool, default=True)
-argparser.add_argument('--cir_output', type=bool, default=True)
+argparser.add_argument('--cir_selfattention', type=int, default=1)
+argparser.add_argument('--cir_attention_output', type=int, default=1)
+argparser.add_argument('--cir_intermediate', type=int, default=1)
+argparser.add_argument('--cir_output', type=int, default=1)
 
 # hyperparameters
 argparser.add_argument('--lr', type=float, default=5e-4)
@@ -72,11 +72,11 @@ train_data = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=Tru
 
 if config.dataset in ['qnli','mnli','cola','rte','sst2','qqp','rte','wnli']:
     validation_dataset = encoded_dataset['validation']
-    validation_data = DataLoader(validation_dataset, batch_size=config.batch_size, shuffle=False)
+    # validation_data = DataLoader(validation_dataset, batch_size=config.batch_size, shuffle=False)
     test_data = DataLoader(validation_dataset, batch_size=config.batch_size, shuffle=False, collate_fn=data_collator,num_workers=4)
 else:
     test_dataset = encoded_dataset['test']
-    train_data = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True, collate_fn=data_collator,num_workers=4)
+    # train_data = DataLoader(train_dataset, batch_size=config.batch_size, shuffle=True, collate_fn=data_collator,num_workers=4)
     test_data = DataLoader(test_dataset, batch_size=config.batch_size, shuffle=False, collate_fn=data_collator,num_workers=4)
 # test_data = DataLoader(test_dataset, batch_size=config.batch_size, shuffle=False, collate_fn=data_collator,num_workers=4)
 
@@ -85,9 +85,29 @@ model = GetCirBertForSequenceClassification(config,weights_path='./model/bert-ba
 # model = BertForSequenceClassification.from_pretrained('model/bert-base-uncased', config=config)
 model.to(device)
 
-optimizer = torch.optim.AdamW(model.parameters(), lr=config.lr)
+param_optimizer = list(model.named_parameters())
+no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']
+optimizer_grouped_parameters = [
+    {'params': [p for n, p in param_optimizer
+                if not any(nd in n for nd in no_decay)], 'weight_decay': 0.01},
+    {'params': [p for n, p in param_optimizer
+                if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
+]
+# 给不同的参数组设置不同的学习率和权重衰减
+# params = list(model.bert.named_parameters())
+# optimizer_grouped_parameters = [
+#     {'params': [p for n,p in params if not any(nd in n for nd in no_decay)], 'lr': config.lr, 'weight_decay': 0.01},
+#     {'params': [p for n,p in params if any(nd in n for nd in no_decay)], 'lr': config.lr, 'weight_decay': 0.0},
+#     {'params': model.classifier.parameters(), 'lr': config.lr*10, 'weight_decay': 0.01}
+# ]
+optimizer = torch.optim.AdamW(optimizer_grouped_parameters, lr=config.lr)
 # print(model.parameters())
-sheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=200, gamma=0.2)
+# sheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=200, gamma=0.2)
+# add_warmup_scheduler
+total_steps = len(train_data) * config.num_epochs
+warmup_steps = int(total_steps * 0.1)
+# print(total_steps,warmup_steps)
+scheduler = transformers.get_linear_schedule_with_warmup(optimizer, num_warmup_steps=warmup_steps, num_training_steps=total_steps)
 if config.num_labels == 1:
     criterion = nn.BCEWithLogitsLoss()
 else:
@@ -110,7 +130,7 @@ def evaluate(model, test_loader, device):
             total += labels.size(0)
             if config.num_labels == 1:
                 # outputs经过sigmoid函数后的值
-                outputs = torch.sigmoid(outputs)
+                # outputs = torch.sigmoid(outputs)
                 loss = criterion(outputs, labels.unsqueeze(1).float())
                 total_loss += loss.item()
                 outputs = (outputs > 0.5).long()
@@ -164,7 +184,7 @@ for epoch in range(config.num_epochs):
         # if (total-1)%5==0:
         #     print(model.bert.encoder.layer[0].attention.self.query.weight.grad,flush=True)
         optimizer.step()
-        # sheduler.step()
+        scheduler.step()
         # if total % 20 == 0:
         #     print(f'Epoch {epoch+1}/{config.num_epochs}, Step {total}/{len(train_data)}, Train Loss: {total_loss}/{total}')
         

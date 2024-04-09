@@ -36,6 +36,33 @@ bash run.sh
 
 ## Multi-GPU Training
 Transformers library supports multi-GPU training by using Trainer Class. I have implemented part of the multi-GPU training. But Some strange bug occurs when I run the `Trainer.py`. If you have any idea, please let me know. 
+
+
+## Hyperparameter Tuning
+
+| Dataset | Batch Size | Max Length | Learning Rate | Epoch | Circular | Accuracy | Ref  Accuracy | Data Size |
+|---------|------------|------------|---------------|-------|----------|----------|---------------|-----------|
+|mrpc     | 16         | 512        |4e-5           | 2     | No       | 0.8441   |0.8407 |3.6k|
+|mrpc     | 32         | 512        |4e-5           | 2     | Yes      | 0.6765   |-      |3.6k|
+|agnews   | 64         | 32         |2e-5           | 2     | No       | 0.9357   |0.9475 |120k|
+|agnews   | 64         | 32         |2e-5           | 2     | Yes      | 0.9111   |-      |120k|
+|qnli     | 32         | 512        |2e-5           | 1     | No       | 0.9083   |0.9066 |105k|
+|qnli     | 32         | 512        |1e-5           | 3     | Yes      | 0.8080   |-      |105k|
+|qnli     | 16         | 512        |2e-5           | 3     | Yes      | 0.8149   |-      |105k|
+|qnli     | 32         | 512        |3e-5           | 3     | Yes      | 0.8224   |-      |105k|
+|qnli     | 32         | 512        |4e-5           | 3     | Yes      | 0.8230   |-      |105k|
+|qqp      | 32         | 512        |2e-5           | 1     | No       | 0.8970   |0.9071 |363k|
+|qqp      | 32         | 512        |2e-5           | 1     | Yes      | 0.8392   |-      |363k|
+|wnli     | 32         | 512        |4e-5           | 1     | No (No scheduler)   | 0.5634   |0.5634 |0.63k|
+|wnli     | 32         | 512        |4e-5           | 1     | Yes      | 0.5634   |-      |0.63k|
+|rte      | 32         | 512        |4e-5           | 3     | No       | 0.6968   |0.6570 |2.5k|
+|rte      | 32         | 512        |4e-5           | 3     | Yes      | 0.5271   |-      |2.5k|
+
+
+
+
+
+
  
 
 

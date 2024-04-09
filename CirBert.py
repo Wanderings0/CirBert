@@ -90,13 +90,13 @@ class CirMatrix(nn.Module):
             mean_of_diagonal = diagonal.mean(dim=2)
             # mean_of_diagonal.shape (q,p)
             tmp_compress[:,:,i] = mean_of_diagonal
-        if self.cir is True:
+        if self.cir:
             self.weight = torch.nn.Parameter(tmp_compress)
 
-    def trans2cir(self):
+    def trans2cir(self,device):
         q = self.out_features // self.block_size
         p = self.in_features // self.block_size
-        w = torch.zeros(q, p, self.block_size, self.block_size)
+        w = torch.zeros(q, p, self.block_size, self.block_size).to(device)
         for i in range(self.block_size):
             w[:,:,:,i] = self.weight.roll(shifts=i,dims=2)
         w = w.permute(0,2,1,3).reshape(self.out_features,self.in_features)
@@ -107,7 +107,7 @@ class CirMatrix(nn.Module):
         p = self.in_features // self.block_size
         assert self.out_features % self.block_size == 0
         assert self.in_features % self.block_size == 0
-        tmp = self.weight.reshape(q, self.block_size, p, self.block_size)
+        tmp = self.weight.reshape(q, self.block_size, p, self.block_size).to(device)
         tmp = tmp.permute(0, 2, 1, 3)
         w = torch.zeros(q, p, self.block_size, self.block_size)
         rotate_mat = self.rotate_mat.to(device)
