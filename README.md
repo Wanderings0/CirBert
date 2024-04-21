@@ -60,8 +60,7 @@ Transformers library supports multi-GPU training by using Trainer Class. I have 
 
 
 
-
-
+python train.py --lr 2e-4 --batch_size 32 --max_length 512 --num_epochs 10 --dataset rte --device 4 --cir_selfattention 1 --cir_attention_output 1 --cir_intermediate 1 --cir_output 1 > out/rte2.txt
 
  
 

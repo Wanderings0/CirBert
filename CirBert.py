@@ -9,8 +9,7 @@ from transformers.models.bert.modeling_bert import BertEmbeddings, BertPooler
 # TODO: 
 
 
-#       4. if the out_features%block_size!=0, we need to do extra work
-#       5. BertForSequencetoSequence need decoder part
+
 
 class CirMatrix(nn.Module):
     def __init__(self,in_features,out_features,block_size=2,cir=False,weight=None):
@@ -109,7 +108,7 @@ class CirMatrix(nn.Module):
         assert self.in_features % self.block_size == 0
         tmp = self.weight.reshape(q, self.block_size, p, self.block_size).to(device)
         tmp = tmp.permute(0, 2, 1, 3)
-        w = torch.zeros(q, p, self.block_size, self.block_size)
+        # w = torch.zeros(q, p, self.block_size, self.block_size)
         rotate_mat = self.rotate_mat.to(device)
         rev_rotate_mat = self.rev_rotate_mat.to(device)
         weights_rot = tmp[:,:,rotate_mat[:,0],rotate_mat[:,1]]
@@ -118,9 +117,14 @@ class CirMatrix(nn.Module):
         weights_cir = weights_cir.repeat(1,1,self.block_size,1)
         weights_cir = weights_cir[:,:,rev_rotate_mat[:,0],rev_rotate_mat[:,1]]
         weights_cir = weights_cir.view(q,p,self.block_size,self.block_size)
-        w = weights_cir.permute(0,2,1,3).reshape(self.out_features,self.in_features)
-        return w
+        weights_cir = weights_cir.permute(0,2,1,3).reshape(self.out_features,self.in_features)
+        # w = torch.nn.Parameter(weights_cir)
+        return weights_cir
 
+    # def forward(self,x):
+    #     if self.cir:
+    #         self.trans2cir_meng(x.device)
+    #     return F.linear(x,self.weight,self.bias)
     def forward(self,x):
         # return torch.matmul(x,self.weight.t())+self.bias
         if self.cir:
@@ -247,6 +251,7 @@ class CirBertLayer(nn.Module):
         layer_output = self.output(intermediate_output, attention_output)
         return layer_output
     
+
 class CirBertEncoder(nn.Module):
     def __init__(self, config):
         super(CirBertEncoder, self).__init__()
@@ -259,6 +264,7 @@ class CirBertEncoder(nn.Module):
             all_encoder_layers.append(hidden_states)
         return all_encoder_layers
     
+
 class CirBertModel(nn.Module):
     def __init__(self, config):
         super(CirBertModel, self).__init__()
@@ -288,6 +294,7 @@ class CirBertModel(nn.Module):
         # print(f'pooled_output:{pooled_output}')
         return sequence_output, pooled_output
 
+
 class CirBertForSequenceClassification(nn.Module):
     def __init__(self, config):
         super(CirBertForSequenceClassification, self).__init__()
@@ -310,10 +317,13 @@ class CirBertForSequenceClassification(nn.Module):
         return outputs
     
 
+
 def GetCirBertForSequenceClassification(config,weights_path=None):
     model = CirBertForSequenceClassification(config)
     if weights_path is not None:
         pretrained_weights = torch.load(weights_path)
+    else:
+        return model
     updated_weights = {}
     for name,parameters in pretrained_weights.items():
         if 'LayerNorm.gamma' in name:
@@ -324,16 +334,19 @@ def GetCirBertForSequenceClassification(config,weights_path=None):
             continue
         updated_weights[name] = parameters
     # 给classifier层的权重赋初值
-    updated_weights['classifier.weight'] = model.classifier.weight
-    updated_weights['classifier.bias'] = model.classifier.bias
+    if 'classifier.weight' not in updated_weights:
+        updated_weights['classifier.weight'] = model.classifier.weight
+        updated_weights['classifier.bias'] = model.classifier.bias
     model.load_state_dict(updated_weights)
     # 筛选出model中的层为CirMatrix，那么调用该层的tran2cir方法
     # for i in model.modules():
     #     if isinstance(i,CirMatrix):
     #         i.save_circle()
 
-    print('weight loaded!')
+
+    print(f'weight loaded from {weights_path}')
     return model
+
 
 
 if __name__ == "__main__":

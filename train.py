@@ -41,7 +41,7 @@ argparser.add_argument('--batch_size', type=int, default=64)
 argparser.add_argument('--num_epochs', type=int, default=2)
 argparser.add_argument('--seed', type=int, default=42)
 argparser.add_argument('--max_length', type=int, default=32)
-argparser.add_argument('--dataset', type=str, default='agnews')
+argparser.add_argument('--dataset', type=str, default='mnli')
 argparser.add_argument('--device', type=int, default=4)
 
 
@@ -58,6 +58,7 @@ set_seed(config.seed)
 
 # tokenizer
 tokenizer = BertTokenizer.from_pretrained('model/bert-base-uncased')
+
 data_collator = DataCollatorWithPadding(tokenizer=tokenizer, padding='max_length', max_length=config.max_length)
 
 
@@ -80,7 +81,11 @@ else:
     test_data = DataLoader(test_dataset, batch_size=config.batch_size, shuffle=False, collate_fn=data_collator,num_workers=4)
 # test_data = DataLoader(test_dataset, batch_size=config.batch_size, shuffle=False, collate_fn=data_collator,num_workers=4)
 
-model = GetCirBertForSequenceClassification(config,weights_path='./model/bert-base-uncased/pytorch_model.bin')
+if config.cir_selfattention:
+    weights_path = f'./model_best/bert-base-{config.dataset}.pth'
+else:
+    weights_path = './model/bert-base-uncased/pytorch_model.bin'
+model = GetCirBertForSequenceClassification(config,weights_path=weights_path)
 # config2 = BertConfig.from_pretrained('model/bert-base-uncased',num_labels=config.num_labels,hidden_dropout_prob=0.1)
 # model = BertForSequenceClassification.from_pretrained('model/bert-base-uncased', config=config)
 model.to(device)
@@ -100,9 +105,13 @@ optimizer_grouped_parameters = [
 #     {'params': [p for n,p in params if any(nd in n for nd in no_decay)], 'lr': config.lr, 'weight_decay': 0.0},
 #     {'params': model.classifier.parameters(), 'lr': config.lr*10, 'weight_decay': 0.01}
 # ]
+
 optimizer = torch.optim.AdamW(optimizer_grouped_parameters, lr=config.lr)
+
 # print(model.parameters())
 # sheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=200, gamma=0.2)
+
+
 # add_warmup_scheduler
 total_steps = len(train_data) * config.num_epochs
 warmup_steps = int(total_steps * 0.1)
@@ -129,8 +138,6 @@ def evaluate(model, test_loader, device):
             outputs = model(inputs, masks,token_type_ids)
             total += labels.size(0)
             if config.num_labels == 1:
-                # outputs经过sigmoid函数后的值
-                # outputs = torch.sigmoid(outputs)
                 loss = criterion(outputs, labels.unsqueeze(1).float())
                 total_loss += loss.item()
                 outputs = (outputs > 0.5).long()
@@ -138,7 +145,7 @@ def evaluate(model, test_loader, device):
             else:
                 loss = criterion(outputs, labels)
                 total_loss += loss.item()
-                _, predicted = torch.max(outputs, dim=1)
+                predicted = torch.argmax(outputs, dim=1)
                 correct += (predicted == labels).sum().item()
     return total_loss/total, 100*correct / total
 print("The Config is:")
@@ -195,13 +202,17 @@ for epoch in range(config.num_epochs):
     if val_acc > best_acc:
         best_acc = val_acc
         best_model_state = model.state_dict()
+
 if best_model_state is not None:
     if not os.path.exists('./model_best'):
         os.makedirs('./model_best')
     if config.cir_output:
         torch.save(best_model_state, f'./model_best/cir-bert-base-{config.dataset}.pth')
+        print(f'model saved as cir-bert-base-{config.dataset}.pth')
     else:
         torch.save(best_model_state, f'./model_best/bert-base-{config.dataset}.pth')
+        print(f'model saved as bert-base-{config.dataset}.pth')
+
 
 # test_loss, test_acc = evaluate(model, test_data, device)
 print("-"*20)
